@@ -1,0 +1,7 @@
+# XiaoAi-LLM-Router 依赖（胶水层，刻意保持精简）
+miservice>=0.4.0      # 小爱同学 API 逆向库（收音 & TTS）
+aiohttp>=3.9.0        # 异步 HTTP：轮询 MiService 对话流、调用 TTS
+requests>=2.31.0      # 同步兜底：部分小米接口只给同步 SDK
+litellm>=1.40.0       # 100+ LLM 统一出口（DeepSeek/Ollama/OpenAI 一行切换）
+pyyaml>=6.0           # 读取 config.yaml
+python-dotenv>=1.0.0  # .env 注入密钥（可选，与 docker-compose 环境变量二选一）

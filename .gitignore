@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# 本地配置（含密钥，禁止入库）
+config.yaml
+.env
+
+# Docker 日志
+*.log

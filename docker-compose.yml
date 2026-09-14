@@ -1,0 +1,36 @@
+# XiaoAi-LLM-Router 一键部署
+# 用法:
+#   1) cp config.example.yaml config.yaml 并填写
+#   2) docker compose up -d
+#
+# 前提:
+#   - 你的 MiService 已在本机(端口 8080)或同网段某台机器上运行
+#   - 使用本地 Ollama 时, 宿主机上已 docker run -d -p 11434:11434 ollama/ollama
+name: xiaoai-llm-router
+
+services:
+  router:
+    image: python:3.11-slim
+    container_name: xiaoai-llm-router
+    # 容器内直接 pip 安装依赖（轻量演示；生产可换成自建镜像）
+    entrypoint: sh -c "pip install -r /app/requirements.txt && python /app/main.py"
+    volumes:
+      # 把项目源码与配置挂进容器
+      - ./main.py:/app/main.py
+      - ./requirements.txt:/app/requirements.txt
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      # 这些环境变量会被 main.py 读取，用于覆盖/补充 config.yaml
+      MISEERVICE_URL: ${MISEERVICE_URL:-http://localhost:8080}   # 你现有的 MiService 网关地址
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}  # 容器内访问宿主机 Ollama
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    extra_hosts:
+      # 让 host.docker.internal 在 Linux 上也能解析到宿主机（访问 Ollama 用）
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

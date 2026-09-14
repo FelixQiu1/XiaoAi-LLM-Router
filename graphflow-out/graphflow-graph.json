@@ -1,0 +1,33 @@
+{
+  "nodes": [
+    {
+      "id": "dialogue-session:662wes",
+      "type": "Decision",
+      "content": "dialogue-session session-e745368c-b6b0-48a4-83f8-eec63f2f017a turns=1 tip=dialogue:662wes:0001",
+      "metadata": {
+        "kind": "dialogue-session",
+        "record": "{\"id\":\"dialogue-session:662wes\",\"name\":\"session-e745368c-b6b0-48a4-83f8-eec63f2f017a\",\"tipTurnId\":\"dialogue:662wes:0001\",\"turnCount\":1,\"topicTokens\":[\"ai\",\"aiohttp\",\"api\",\"asyncio\",\"badges\",\"compose\",\"config\",\"deepseek\",\"docker\",\"env\",\"github\",\"id\",\"key\",\"litellm\",\"llm\",\"main\",\"md\",\"miservice\",\"ollama\",\"openai\",\"py\",\"python\",\"readme\",\"requests\",\"requirements\",\"router\",\"tts\",\"txt\",\"up\",\"url\",\"xiaoai\",\"yaml\",\"yml\",\"一键将家里的老旧小爱同学升级为\",\"一键部署文件\",\"不从零造轮子\",\"主要体现模块间的\",\"代码需有详细的中文注释说明如何二次开发\",\"以及大模型\",\"传回给小爱同学播放\",\"作用\",\"你是一个资深开源项目架构师\",\"使用异步循环\",\"包含\",\"包含盾牌徽章\",\"化网关应用\",\"和本地\",\"多轮对话记忆\"],\"createdAt\":1789358608312,\"updatedAt\":1789359075158}",
+        "name": "session-e745368c-b6b0-48a4-83f8-eec63f2f017a"
+      }
+    },
+    {
+      "id": "dialogue:662wes:0001",
+      "type": "Decision",
+      "content": "dialogue-turn #1 Q: 你是一个资深开源项目架构师。请帮我生成一个名为 \"XiaoAi-LLM-Router\"（小爱同学全能大模型网关）的高星潜力 GitHub 项目。 核心理念：不从零造轮子，纯做“生态整合”。这是一个基于 Python 的轻量级 Docker 化网关应用。它整合开源库 `MiService` 拦截小爱同学的对话记录，并通… | A: 项目已在 `/home/ubuntu/xiaoai` 生成完毕，全部文件通过语法校验（Python `py_compile` + YAML `safe_load`）。 ## 📦 文件清单 | 文件 | 说明 | |---|---| | `README.md` | 吸星式主页：6 个徽章盾牌、\"一键升级老旧小爱\"主标…",
+      "metadata": {
+        "kind": "dialogue-turn",
+        "record": "{\"id\":\"dialogue:662wes:0001\",\"sessionId\":\"dialogue-session:662wes\",\"seq\":1,\"userQuery\":\"你是一个资深开源项目架构师。请帮我生成一个名为 \\\"XiaoAi-LLM-Router\\\"（小爱同学全能大模型网关）的高星潜力 GitHub 项目。 核心理念：不从零造轮子，纯做“生态整合”。这是一个基于 Python 的轻量级 Docker 化网关应用。它整合开源库 `MiService` 拦截小爱同学的对话记录，并通过接入 `LiteLLM` 或直接调用 API，将问题路由给 DeepSeek、Ollama（本地模型）或 OpenAI，最后将 AI 的回复通过 TTS 传回给小爱同学播放。 请生成以下完整的工程文件： 1. 极具吸星属性的 README.md： - 标题与副标题（强调：一键将家里的老旧小爱同学升级为 DeepSeek/Ollama 智能管家，无需拆机改硬件）。 - 包含盾牌徽章（Badges）。 - 提供一份极其简单的 `docker-compose up -d` 部署指南。 - 强调核心特性：支持多模型无缝切换、多轮对话记忆、本地部署隐私保护。 2. 配置文件模板 (config.yaml 或 .env)：提供小米账号密码、设备 ID、以及大模型 API Key（特别是 DeepSeek 和本地 Ollama 的 URL）的占位符。 3. 一键部署文件 (docker-compose.yml)：配置好 Python 运行环境和环境变量映射。 4. 核心路由代码 (main.py)： - 使用异步循环 (asyncio) 监听小爱同学的对话。 - 当监听到特定唤醒词（如“请问”或“深思”）时，将文本发给配置好的大模型接口获取回复。 - 调用小米文本转语音 (TTS) 接口让小爱同学说出回复。 - 逻辑要求极简，主要体现模块间的“胶水”作用，代码需有详细的中文注释说明如何二次开发。 5. requirements.txt (包含 miservice, aiohttp, requests 等)。\",\"assistantReply\":\"项目已在 `/home/ubuntu/xiaoai` 生成完毕，全部文件通过语法校验（Python `py_compile` + YAML `safe_load`）。 ## 📦 文件清单 | 文件 | 说明 | |---|---| | `README.md` | 吸星式主页：6 个徽章盾牌、\\\"一键升级老旧小爱\\\"主标语、`docker compose up -d` 三步部署、核心特性（多模型切换/多轮记忆/本地隐私）、二次开发指引、路线图 | | `docker-compose.yml` | `python:3.11-slim` 直接 pip 安装依赖运行，挂载源码与 `config.yaml`，`host.docker.internal` 映射让容器内访问宿主机 Ollama，密钥全走环境变量 | | `config.example.yaml` | 双通道配置模板：小米账号/设备 ID、MiService 地址、DeepSeek/Ollama/OpenAI 三家 LLM 的 key 与 model、记忆 TTL/滑动窗口、唤醒词、TTS 分句长度，全部带中文注释 | | `.env.example` | 同套敏感信息的环境变量版（`MI_PASSWORD`、`DEEPSEEK_API_KEY` 等），与 YAML 互为兜底 | | `requirements.txt` | 五个依赖：`miservice`、`aiohttp`、`requests`、`litellm`、`pyyaml`（+dotenv），每个都标注了它承担哪段胶水 | | `main.py` | **核心路由**：asyncio 事件循环监听小爱对话流 → 唤醒词\\\"请问/深思\\\"判定 → `litellm.acompletion` 统一发往 DeepSeek/Ollama/OpenAI → 按设备隔离的多轮记忆 → 小米 TTS 分句回播；全文 4 段中文注释标明每个模块的二次开发钩子 | | `miservice_glue.py` | 模块①收音：aiohttp 轮询 MiService 对话接口，id 去重，`async for` 产出 `{\\\"text\\\",\\\"device_id\\\"}` 契约 | | `llm_router.py` | 模块②思考：配置驱动的 LiteLLM 出口，provider 零代码切换，鉴权/越窗/上游错误都转成一句人话 | | `memory.py` | 模块③记忆：`deque(maxlen)` 滑动窗口 + TTL 清零，接口留给 Redis/向量库替换 | | `mi_tts.py` | 模块④嘴：TTS 提交 + 两级分句切法（强断句符→逗号弱断句符），模拟真人换气停顿 | | `.gitignore` | 排除 `__pycache__`、`config.yaml`、`.env`（密钥绝不入库） | ## 🏗 架构一览 ``` 小爱收音 ─(MiService 轮询)→ ① miservice_glue ─② 唤醒词判定(main)─③ llm_router(LiteLLM) │ 小爱播放 ←(小米 TTS 分句)④ mi_tts ← ⑤ memory 写回 ←┘ ``` ## ▶️ 使用 ```bash cd /home/ubuntu/xiaoai cp config.example.yaml config.yaml # 填小米账号、设备 ID、DeepSeek Key cp .env.example .env # 密钥走环境变量 docker compose up -d docker compose logs -f ``` 对着小爱说 **\\\"小爱同学，请深思：为什么月亮晚上才上班？\\\"** 即可听到 LLM 的回答。 一个已知的设计取舍（已在 README 路线图注明）：MiService 与 Mi TTS 的具体接口路径（`/api/v1/talks`、`/api/v1/tts`）是按 MiService 常见版本写的占位，部署时以你实例控制台的真实路径核对一遍即可——这正是把\\\"收音\\\"和\\\"嘴\\\"隔离成独立模块的原因：改路径只动两个文件，不碰 `main.py`。\",\"jumped\":false,\"relatedNodeIds\":[],\"createdAt\":1789358608312,\"updatedAt\":1789359075158,\"title\":\"你是一个资深开源项目架构师\",\"summary\":\"项目已在 `/home/ubuntu/xiaoai` 生成完毕，全部文件通过语法校验（Python `py_compile` + YAML `safe_load`）。 ## 📦 文件清单 | 文件 | 说明 | |---|---| | `README.md` | 吸星式主页：6 个徽章盾牌、\\\"一键升级老旧小爱\\\"主标语、`docker compose up -d` 三步部署、核心特性（多模型切换…\"}",
+        "seq": 1,
+        "sessionId": "dialogue-session:662wes",
+        "jumped": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "dialogue:662wes:0001",
+      "to": "dialogue-session:662wes",
+      "relation": "part_of"
+    }
+  ]
+}

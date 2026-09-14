@@ -1,0 +1,54 @@
+# XiaoAi-LLM-Router 配置模板
+# 使用: cp config.example.yaml config.yaml，然后填写。
+# 所有 *_KEY / password 类字段也支持从同名环境变量注入（main.py 里 os.environ 优先）。
+
+# ---------- 小米账号（MiService 同款，用于 TTS 与设备操作） ----------
+mi:
+  username: "your_mi_account"          # 小米账号
+  password: "your_mi_password"         # 强烈建议改用环境变量 MI_PASSWORD 注入
+  device_id: "1A2B3C4D-EFFF-0000-XXXX" # 小爱音箱的设备 ID（MiService 控制台可查）
+
+# ---------- MiService 网关（小爱对话流的来源） ----------
+miservice:
+  base_url: "http://localhost:8080"    # 你的 MiService 实例地址
+
+# ---------- 大模型路由 ----------
+llm:
+  default_provider: "deepseek"         # 可选: deepseek | ollama | openai（LiteLLM 支持的均可）
+
+  # DeepSeek（云端，便宜且中文好）
+  deepseek:
+    api_key: "sk-xxxxxxxxxxxxxxxx"      # 或设置环境变量 DEEPSEEK_API_KEY
+    model: "deepseek-chat"
+
+  # Ollama（本地，隐私优先；容器内需能访问到宿主机 11434 端口）
+  ollama:
+    base_url: "http://host.docker.internal:11434"
+    model: "qwen2.5:7b"
+
+  # OpenAI（备用）
+  openai:
+    api_key: "sk-xxxxxxxxxxxxxxxx"     # 或设置环境变量 OPENAI_API_KEY
+    model: "gpt-4o-mini"
+
+# ---------- 多轮对话记忆 ----------
+session:
+  ttl_seconds: 600                     # 同一设备超过 10 分钟没说话，记忆清零
+  max_turns: 10                        # 滑动窗口保留最近 10 轮
+
+# ---------- 触发器（唤醒词） ----------
+# 命中任意一个词，整句才走 LLM；否则交还给小爱自己回答（不干扰日常指令）
+trigger:
+  wake_words:
+    - "请问"
+    - "深思"
+  # 二次开发钩子：把某条唤醒词绑上专属 system prompt。
+  # 例如希望"深思"时模型更严谨，可以改成:
+  #   "深思": { prefix: "你正在深思模式，请给出推理步骤" }
+  # main.py 的 resolve_system_prompt() 会读取它。
+
+# ---------- TTS 回放 ----------
+tts:
+  engine: "mi_tts"                     # mi_tts = 让被绑定的小爱音箱念出来
+  voice: "default"                     # 保留字段，后续可接 edge-tts 音色
+  max_chunk_chars: 60                  # 长回复切成 <=60 字的小句，逐句播，像真人停顿
