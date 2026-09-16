@@ -52,6 +52,7 @@ import llm_router as router
 import memory as mem
 import mi_tts as tts
 import miservice_glue as glue
+import mi_conversation as conv      # 【模块 1b】机型无关收音 + 设备自检（MiService 库）
 
 logging.basicConfig(
     level=logging.INFO,
@@ -146,10 +147,17 @@ class RouterPipeline:
             ttl=(cfg.get("session", {}) or {}).get("ttl_seconds", 600),
             max_turns=(cfg.get("session", {}) or {}).get("max_turns", 10),
         )
+        self.speaker_mina = None  # v1.2：MiService 库播报器（set_speaker 注入）
 
-    async def handle(self, item: dict) -> None:
-        """处理一句小爱对话。item 由 miservice_glue 产出：
-        {"text", "device_id", "session_id", "ts"}
+    def set_speaker(self, speaker):
+        """v1.2：优先用 MiService 库的 MiNAService 播报（机型指令表已内置）。
+        没连上 MiService 时回落 mi_tts 的 HTTP 播报。"""
+        self.speaker_mina = speaker
+
+    async def handle(self, item: dict, tts_mode: str = "http") -> None:
+        """处理一句小爱对话。item 由收音模块产出：
+        {"text", "device_id", "session_id"/"request_id", "ts"}
+        tts_mode: "mina"(MiService 库) | "http"(mi_tts HTTP)
         """
         text = (item.get("text") or "").strip()
         device = item.get("device_id", "default")
@@ -177,7 +185,10 @@ class RouterPipeline:
             try:
                 async for chunk in router.ask_stream(self.cfg, system, history, text):
                     buffered.append(chunk)
-                    await self.speaker.speak(device, chunk)
+                    if tts_mode == "mina" and self.speaker_mina is not None:
+                        await self.speaker_mina.tts(device, chunk)
+                    else:
+                        await self.speaker.speak(device, chunk)
             except Exception as e:
                 log.error("[%s] LLM stream failed: %s", device, e)
                 ok = False
@@ -199,11 +210,16 @@ class RouterPipeline:
 
         # --- ⑤ TTS 回播（非流式路径在此切短句；流式路径 ③-a 已边想边说） ---
         if not self.stream:
-            if ok and full_answer:
-                chunk_size = (self.cfg.get("tts", {}) or {}).get("max_chunk_chars", 60)
-                await self.speaker.speak_chunks(device, full_answer, chunk_size)
+            if tts_mode == "mina" and self.speaker_mina is not None:
+                # 机型无关嘴：MiService 库 text_to_speech（指令表已按 hardware 适配）
+                await self.speaker_mina.tts(device, full_answer) if ok and full_answer \
+                    else await self.speaker_mina.tts(device, "刚才网络有点开小差，你能再问一遍吗？")
             else:
-                await self.speaker.speak(device, "刚才网络有点开小差，你能再问一遍吗？")
+                if ok and full_answer:
+                    chunk_size = (self.cfg.get("tts", {}) or {}).get("max_chunk_chars", 60)
+                    await self.speaker.speak_chunks(device, full_answer, chunk_size)
+                else:
+                    await self.speaker.speak(device, "刚才网络有点开小差，你能再问一遍吗？")
 
         if ok:
             log.info("[%s] replied via %s: %s", device,
@@ -240,6 +256,50 @@ async def run_demo(cfg: dict) -> None:
 _shared_session: aiohttp.ClientSession | None = None
 
 
+async def _list_devices(cfg: dict, hardware_override: str | None) -> None:
+    """--list-devices：列出账号下所有小爱音箱 + 档位。跑完退出。"""
+    sp = await conv.MiSpeaker.connect(cfg)
+    rows = await sp.list_devices()
+    if hardware_override:
+        rows = [r for r in rows if r["hardware"].upper() == hardware_override.upper()]
+    if not rows:
+        print("账号下没有发现小爱音箱（检查 MI_USER/MI_PASS 或设备是否登录米家）")
+        return
+    print(f"{'名称':<20} {'DID':<14} {'hardware':<8} {'档位':<10} 备注")
+    for r in rows:
+        tier_label = {"perfect": "✅ 完美", "normal": "🚗 正常",
+                     "unknown": "❓ 未知", "unsupported": "❌ 不支持"}.get(r["tier"], r["tier"])
+        print(f"{str(r['name']):<20} {r['did']:<14} {r['hardware']:<8} {tier_label:<10} {r.get('note','')}")
+
+
+async def _consume_conversation(sp: "conv.MiSpeaker", stop_event) -> AsyncIterator[dict]:
+    """conversation 收音：轮询 get_latest_ask，以 request_id 做水位线去重（重启不重放）。"""
+    import collections
+    dedup = collections.OrderedDict()   # request_id → ts，有界 LRU
+    CAP = 512
+    last_ts = 0.0
+    log.info("conversation ingest: polling get_latest_ask every 3s")
+    while not stop_event.is_set():
+        try:
+            item = await sp.latest_ask()
+        except Exception as e:
+            log.warning("conversation poll failed: %s", e)
+            await asyncio.sleep(3.0)
+            continue
+        if item and item.get("request_id"):
+            rid = item["request_id"]
+            if item["ts"] <= last_ts or rid in dedup:
+                await asyncio.sleep(3.0)
+                continue
+            dedup[rid] = item["ts"]
+            dedup.move_to_end(rid)
+            while len(dedup) > CAP:
+                dedup.popitem(last=False)
+            last_ts = item["ts"]
+            yield item
+        await asyncio.sleep(3.0)
+
+
 async def main() -> None:
     global _shared_session
     cfg = load_config()
@@ -247,8 +307,15 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="XiaoAi-LLM-Router")
     parser.add_argument("--demo", action="store_true",
                         help="演示模式：stdin 输入 → TTS，不依赖 MiService")
+    parser.add_argument("--list-devices", action="store_true",
+                        help="列出当前小米账号下所有小爱音箱 + 支持档位后退出")
+    parser.add_argument("--hardware", default=None,
+                        help="手动指定音箱 hardware（覆盖 device_list 自动识别）")
     parser.add_argument("--config", default="config.yaml", help="配置文件路径")
     args, _ = parser.parse_known_args()
+    if args.list_devices:
+        await _list_devices(cfg, args.hardware)
+        return
     if args.config != "config.yaml":
         cfg = load_config(args.config)
 
@@ -264,6 +331,8 @@ async def main() -> None:
         return
 
     pipeline = RouterPipeline(cfg, speaker)
+    if speaker is not None:
+        pipeline.set_speaker(speaker)
     loop = asyncio.get_running_loop()
     stop_event = asyncio.Event()
 
@@ -285,11 +354,31 @@ async def main() -> None:
 
     purge_task = asyncio.create_task(_purge_loop())
 
+    # ---- 收音源分发（v1.2：conversation 优先，poll 兜底）----
+    ingest = (cfg.get("miservice", {}) or {}).get("ingest", "auto")
+    speaker = None
+    if ingest in ("auto", "conversation"):
+        try:
+            speaker = await conv.MiSpeaker.connect(cfg)
+            log.info("conversation ingest ready (MiService 库)")
+        except Exception as e:
+            log.warning("conversation ingest unavailable (%s)%s", e,
+                        "，回落 poll" if ingest == "auto" else "")
+            if ingest == "conversation":
+                raise
+    tts_mode = "mina" if speaker else "http"
+
     try:
-        async for item in glue.consume(cfg, _shared_session):
-            await pipeline.handle(item)
-            if stop_event.is_set():
-                break
+        if speaker is not None:
+            async for item in _consume_conversation(speaker, stop_event):
+                await pipeline.handle(item, tts_mode)
+                if stop_event.is_set():
+                    break
+        else:
+            async for item in glue.consume(cfg, _shared_session):
+                await pipeline.handle(item, tts_mode)
+                if stop_event.is_set():
+                    break
     finally:
         purge_task.cancel()
         await _shared_session.close()

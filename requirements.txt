@@ -1,17 +1,16 @@
 # XiaoAi-LLM-Router 依赖（胶水层，刻意保持精简）
-# v1.1 修正：删掉 "miservice"（它是 Rust 服务，不在 PyPI 上，pip install 必挂）
-#           删掉 "requests"（代码里从未 import，收音/TTS 全走 aiohttp）
-#           新增 paho-mqtt（MiService MQTT Bridge 收音）
 #
-# litellm 是重依赖（拉一堆 provider SDK）。想减体积可以换成裸 OpenAI 兼容
-# HTTP 调用（DeepSeek/Ollama 都是 OpenAI 兼容协议），在 llm_router.py 里改。
-litellm>=1.40.0,<2.0    # 100+ LLM 统一出口（DeepSeek/Ollama/OpenAI 一行切换）
-aiohttp>=3.9.0          # 异步 HTTP：收音轮询 + TTS 播放
-paho-mqtt>=2.0          # MiService MQTT Bridge 收音（推荐模式）
-pyyaml>=6.0             # 读 config.yaml
-python-dotenv>=1.0.0    # .env 注入密钥（可选，与 docker 环境变量二选一）
+# v1.2：收音默认走 MiService Python 库（机型无关 conversation 拦截），所以
+#       miservice 是核心依赖。v1.0 误以为它不在 PyPI，v1.2 已验证 pip3 install 可装。
+#       poll-only 部署（ingest: poll）不强制需要它，但装了无副作用。
+miservice>=3.0          # 小爱音箱 API（device_list / get_latest_ask / text_to_speech）
+litellm>=1.40.0,<2.0   # 100+ LLM 统一出口（DeepSeek/Ollama/OpenAI 一行切换）
+aiohttp>=3.9.0         # 异步 HTTP：HTTP 轮询收音 + HTTP TTS 兜底
+paho-mqtt>=2.0         # （可选）MQTT 收音模式；poll/conversation 用不到
+pyyaml>=6.0            # 读 config.yaml
+python-dotenv>=1.0.0   # .env 注入密钥（可选，与 docker 环境变量二选一）
 
-# 可选：演示模式想要"终端直接听到声音"（没有小米音箱时），装 edge-tts：
+# 可选：没有小米音箱时 demo 想直接听声音
 # edge-tts>=6.1.0
-# 可选：测试
+# 测试
 # pytest>=8.0

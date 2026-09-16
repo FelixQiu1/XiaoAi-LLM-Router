@@ -17,7 +17,10 @@ mi:
 #       连不上自动回落 HTTP 轮询（talks_path 因版本而异，连不通就先跑通 mqtt）。
 miservice:
   base_url: "http://localhost:8080"    # HTTP API（轮询兜底 / TTS 回放都用它）
-  ingest: "auto"                        # auto | mqtt | poll
+  ingest: "conversation"                # conversation | poll | auto
+                                          # conversation = MiService 库拦截小爱问答（机型无关，推荐）
+                                          # poll = HTTP 轮询 MiService talks 接口（兜底）
+                                          # auto = 先 conversation，挂了落 poll
   mqtt_host: "127.0.0.1"               # 容器部署时改成 miservice 所在主机
   mqtt_port: 1883
   mqtt_topic: "miservice/bridge/{device_id}"
@@ -62,3 +65,6 @@ trigger:
 tts:
   engine: "mi_tts"                     # 让被绑定音箱念出来（走 MiService tts_path）
   max_chunk_chars: 60                  # 长回复切成 <=60 字的小句，逐句播
+# ---------- MiService 库登录（ingest: conversation 时必填） ----------
+# device_list / get_latest_ask / text_to_speech 都靠它登录小米云
+# serviceToken 首次登录落 ~/.mi.token，之后免密复用（同机重跑不重新 OTP）

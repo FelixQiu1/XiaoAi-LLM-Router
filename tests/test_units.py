@@ -61,3 +61,29 @@ def test_memory_store_ttl_purge():
     d1.append("x", "y")
     store.purge_expired()
     assert "devA" not in store.snapshot(), "过期 session 应被清理"
+
+# ---- v1.2：机型指令表 / 档位判断 ----
+import mi_conversation as conv
+
+
+def test_tier_l06a_normal():
+    t = conv.tier_of("L06A")
+    assert t["tier"] == "normal", t
+    assert t["tts"] == "5-1" and t["wakeup"] == "5-5"
+    assert t["stream"] is False
+
+
+def test_tier_perfect_has_stream():
+    assert conv.tier_of("LX06")["tier"] == "perfect"
+    assert conv.tier_of("LX06")["stream"] is True
+
+
+def test_tier_unknown_falls_back():
+    t = conv.tier_of("LXXX")
+    assert t["tier"] == "unknown"
+    assert t["tts"] == "5-1"          # 默认指令兜底
+    assert "PR" in t["note"]
+
+
+def test_tier_unsupported():
+    assert conv.tier_of("SM4")["tier"] == "unsupported"
