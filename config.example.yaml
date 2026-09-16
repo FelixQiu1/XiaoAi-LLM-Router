@@ -1,54 +1,64 @@
 # XiaoAi-LLM-Router 配置模板
-# 使用: cp config.example.yaml config.yaml，然后填写。
-# 所有 *_KEY / password 类字段也支持从同名环境变量注入（main.py 里 os.environ 优先）。
+# 用法: cp config.example.yaml config.yaml，然后填写。
+# 敏感字段（*_KEY / password）建议走 .env / 环境变量，不要提交进 git。
 
-# ---------- 小米账号（MiService 同款，用于 TTS 与设备操作） ----------
+# ---------- 小米账号（MiService 同款，用于设备绑定） ----------
 mi:
-  username: "your_mi_account"          # 小米账号
-  password: "your_mi_password"         # 强烈建议改用环境变量 MI_PASSWORD 注入
-  device_id: "1A2B3C4D-EFFF-0000-XXXX" # 小爱音箱的设备 ID（MiService 控制台可查）
+  username: "your_mi_account"
+  password: "your_mi_password"          # 建议改用环境变量 MI_PASSWORD
+  device_id: "1A2B3C4D-EFFF-0000-XXXX" # 单设备（MiService 控制台可查）
+  # 多台音箱监听时改成列表:
+  # devices:
+  #   - "1A2B3C4D-EFFF-0000-XXXX"
+  #   - "5E6F7G8H-IIJJ-1111-YYYY"
 
-# ---------- MiService 网关（小爱对话流的来源） ----------
+# ---------- MiService 收音源 ----------
+# v1.1：默认走 MQTT Bridge（延迟 <1s，MiService 官方集成方式）；
+#       连不上自动回落 HTTP 轮询（talks_path 因版本而异，连不通就先跑通 mqtt）。
 miservice:
-  base_url: "http://localhost:8080"    # 你的 MiService 实例地址
+  base_url: "http://localhost:8080"    # HTTP API（轮询兜底 / TTS 回放都用它）
+  ingest: "auto"                        # auto | mqtt | poll
+  mqtt_host: "127.0.0.1"               # 容器部署时改成 miservice 所在主机
+  mqtt_port: 1883
+  mqtt_topic: "miservice/bridge/{device_id}"
+  # mqtt_user: ""                       # broker 要密码时填
+  # mqtt_password: ""
+  talks_path: "/api/v1/talks"          # 轮询模式的对话记录路径（按你的 MiService 版本核对）
+  tts_path: "/api/v1/tts"              # TTS 回放路径
+  poll_interval: 2                      # 轮询间隔（秒），失败指数退避
 
 # ---------- 大模型路由 ----------
 llm:
   default_provider: "deepseek"         # 可选: deepseek | ollama | openai（LiteLLM 支持的均可）
-
-  # DeepSeek（云端，便宜且中文好）
+  stream: true                         # 边想边说：每攒够一个短句立即 TTS（推荐开）
+  # timeout_seconds: 60                # 全局超时；Ollama 冷启动建议 120+
   deepseek:
-    api_key: "sk-xxxxxxxxxxxxxxxx"      # 或设置环境变量 DEEPSEEK_API_KEY
+    api_key: "sk-xxxxxxxxxxxxxxxx"      # 或环境变量 DEEPSEEK_API_KEY
     model: "deepseek-chat"
-
-  # Ollama（本地，隐私优先；容器内需能访问到宿主机 11434 端口）
   ollama:
-    base_url: "http://host.docker.internal:11434"
+    base_url: "http://host.docker.internal:11434"  # 容器内访问宿主机 Ollama
     model: "qwen2.5:7b"
-
-  # OpenAI（备用）
   openai:
-    api_key: "sk-xxxxxxxxxxxxxxxx"     # 或设置环境变量 OPENAI_API_KEY
+    api_key: "sk-xxxxxxxxxxxxxxxx"     # 或环境变量 OPENAI_API_KEY
     model: "gpt-4o-mini"
 
 # ---------- 多轮对话记忆 ----------
 session:
   ttl_seconds: 600                     # 同一设备超过 10 分钟没说话，记忆清零
-  max_turns: 10                        # 滑动窗口保留最近 10 轮
+  max_turns: 10                        # 滑动窗口保留最近 10 轮（v1.1 起语义正确）
 
 # ---------- 触发器（唤醒词） ----------
-# 命中任意一个词，整句才走 LLM；否则交还给小爱自己回答（不干扰日常指令）
+# ⚠️ 不要用 "请问"：它出现在小爱 99% 的指令里（"请问今天天气"），
+#    命中即抢答，网关会变成复读机。选低频无歧义的词。
 trigger:
   wake_words:
-    - "请问"
+    - "问问 AI"                        # 口语自然，几乎不会误触发
     - "深思"
-  # 二次开发钩子：把某条唤醒词绑上专属 system prompt。
-  # 例如希望"深思"时模型更严谨，可以改成:
-  #   "深思": { prefix: "你正在深思模式，请给出推理步骤" }
-  # main.py 的 resolve_system_prompt() 会读取它。
+  # 二次开发钩子：给某条唤醒词绑专属 system prompt（字典形态）:
+  #   - word: "深思"
+  #     prefix: "你正在深思模式，请先给出推理步骤再给结论。"
 
 # ---------- TTS 回放 ----------
 tts:
-  engine: "mi_tts"                     # mi_tts = 让被绑定的小爱音箱念出来
-  voice: "default"                     # 保留字段，后续可接 edge-tts 音色
-  max_chunk_chars: 60                  # 长回复切成 <=60 字的小句，逐句播，像真人停顿
+  engine: "mi_tts"                     # 让被绑定音箱念出来（走 MiService tts_path）
+  max_chunk_chars: 60                  # 长回复切成 <=60 字的小句，逐句播

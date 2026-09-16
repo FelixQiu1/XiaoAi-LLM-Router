@@ -9,3 +9,6 @@ config.yaml
 
 # Docker 日志
 *.log
+
+# 工具产物
+graphflow-out/

@@ -1,32 +1,35 @@
 # XiaoAi-LLM-Router 一键部署
 # 用法:
 #   1) cp config.example.yaml config.yaml 并填写
-#   2) docker compose up -d
+#   2) cp .env.example .env 并填 API Key（或者全写在 config.yaml 里，二选一）
+#   3) docker compose up -d --build
 #
 # 前提:
-#   - 你的 MiService 已在本机(端口 8080)或同网段某台机器上运行
-#   - 使用本地 Ollama 时, 宿主机上已 docker run -d -p 11434:11434 ollama/ollama
+#   - MiService 已在本机(端口 8080)或同网段跑着
+#   - MiService 已启用 MQTT Bridge（默认 127.0.0.1:1883；compose 里把它作为
+#     服务声明在同一个网络，容器直接连 miservice:1883，见下方注释）
+#   - 用本地 Ollama 时: 宿主机已 docker run -d -p 11434:11434 ollama/ollama
 name: xiaoai-llm-router
 
 services:
   router:
-    image: python:3.11-slim
+    build: .                       # 用 Dockerfile（v1.1：不再每次启动 pip install）
+    image: xiaoai-llm-router:latest
     container_name: xiaoai-llm-router
-    # 容器内直接 pip 安装依赖（轻量演示；生产可换成自建镜像）
-    entrypoint: sh -c "pip install -r /app/requirements.txt && python /app/main.py"
     volumes:
-      # 把项目源码与配置挂进容器
-      - ./main.py:/app/main.py
-      - ./requirements.txt:/app/requirements.txt
+      # 只挂配置；代码打进镜像（改代码要重新 build，部署稳定）
       - ./config.yaml:/app/config.yaml:ro
+    env_file:
+      - .env                       # 密钥走这里，不进 config.yaml
     environment:
-      # 这些环境变量会被 main.py 读取，用于覆盖/补充 config.yaml
-      MISEERVICE_URL: ${MISEERVICE_URL:-http://localhost:8080}   # 你现有的 MiService 网关地址
+      MISEERVICE_URL: ${MISEERVICE_URL:-http://localhost:8080}
+      MISEERVICE_MQTT_HOST: ${MISEERVICE_MQTT_HOST:-localhost}  # 容器网络里指向 miservice 服务
+      MISEERVICE_MQTT_PORT: ${MISEERVICE_MQTT_PORT:-"1883"}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}  # 容器内访问宿主机 Ollama
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     extra_hosts:
-      # 让 host.docker.internal 在 Linux 上也能解析到宿主机（访问 Ollama 用）
+      # Linux 上让 host.docker.internal 可解析（容器内访问宿主机 Ollama/MiService）
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
     logging:
@@ -34,3 +37,19 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # ------------------------------------------------------------------
+  # 可选：把 MiService 也放进这个 compose（一行起全家桶）。
+  # 不需要就注释掉（前提变成"MiService 跑在别处"）。
+  # 注意：MiService 需要小米账号登录，首次启动会打印二维码/链接。
+  # ------------------------------------------------------------------
+  # miservice:
+  #   image: <你的 miservice 镜像>:latest
+  #   container_name: miservice
+  #   ports:
+  #     - "8080:8080"    # HTTP API
+  #     - "1883:1883"    # MQTT Bridge
+  #   environment:
+  #     - MI_USERNAME=${MI_USERNAME}
+  #     - MI_PASSWORD=${MI_PASSWORD}
+  #   restart: unless-stopped

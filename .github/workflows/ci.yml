@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install -r requirements.txt pytest
+
+      - name: Unit tests
+        run: python -m pytest tests/ -q
+
+      - name: Syntax check
+        run: python -m py_compile main.py miservice_glue.py llm_router.py memory.py mi_tts.py
+
+      - name: Validate docker-compose config
+        run: docker compose config -q
+        continue-on-error: true   # runner 无 docker 时不阻断，仅作提示
