@@ -127,3 +127,4 @@ MIT 协议，放心用。Star ⭐ 是最好的鼓励。
 
 - 小爱音箱支持列表（你的音箱能不能用？）：[docs/SUPPORTED_DEVICES.md](docs/SUPPORTED_DEVICES.md)
 - v1.2 更新说明：[docs/RELEASE_v1.2.md](docs/RELEASE_v1.2.md)
+- GitHub Release Notes（可直接贴）：[docs/GITHUB_RELEASE_v1.2.md](docs/GITHUB_RELEASE_v1.2.md)
