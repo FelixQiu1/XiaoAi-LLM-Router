@@ -58,7 +58,7 @@ class _BoundedDedup:
     def __init__(self, cap: int = _DEDUP_CAP):
         self.cap = cap
         self._seen: "OrderedDict[str, float]" = OrderedDict()
-        self.last_ts = 0.0          # 水位线：只接受 ts 严格更大的记录
+        self.last_ts = 0.0  # 水位线：只接受 ts 严格更大的记录
 
     def accept(self, rid: str, ts: float) -> bool:
         """返回 True = 新记录，False = 重复/过期。"""
@@ -83,12 +83,21 @@ def _item(payload: dict, fallback_device: str) -> dict | None:
       设备号:      device / device_id / did
       时间戳:      ts / timestamp / time（可能缺省，用收到时刻兜底）
     """
-    text = (payload.get("user") or payload.get("text")
-            or payload.get("query") or payload.get("asr") or "").strip()
+    text = (
+        payload.get("user")
+        or payload.get("text")
+        or payload.get("query")
+        or payload.get("asr")
+        or ""
+    ).strip()
     if not text:
         return None
-    device = str(payload.get("device") or payload.get("device_id")
-                 or payload.get("did") or fallback_device)
+    device = str(
+        payload.get("device")
+        or payload.get("device_id")
+        or payload.get("did")
+        or fallback_device
+    )
     ts_raw = payload.get("ts") or payload.get("timestamp") or payload.get("time")
     try:
         ts = float(ts_raw) if ts_raw is not None else time.time()
@@ -122,18 +131,24 @@ async def _consume_mqtt(cfg: dict, dedup: _BoundedDedup, poll_fallback: bool):
     pwd = m.get("mqtt_password", "")
     timeout = float(m.get("mqtt_connect_timeout", 3.0))
 
-    devices = [str(d) for d in (cfg.get("mi", {}).get("devices")
-                                or ([cfg["mi"]["device_id"]] if cfg.get("mi", {}).get("device_id") else []))]
+    devices = [
+        str(d)
+        for d in (
+            cfg.get("mi", {}).get("devices")
+            or ([cfg["mi"]["device_id"]] if cfg.get("mi", {}).get("device_id") else [])
+        )
+    ]
     if not devices:
-        log.warning("mqtt ingest: 未配置 mi.devices / mi.device_id，"
-                    "订阅通配 topic '%s'", topic_tpl.replace("{device_id}", "+"))
+        log.warning(
+            "mqtt ingest: 未配置 mi.devices / mi.device_id，" "订阅通配 topic '%s'",
+            topic_tpl.replace("{device_id}", "+"),
+        )
         topics = [topic_tpl.replace("{device_id}", "+")]
     else:
         topics = [topic_tpl.format(device_id=d) for d in devices]
 
     loop = asyncio.get_running_loop()
     connected = asyncio.Event()
-    on_msgs: list = []           # paho 是同步回调，用 call_soon_threadsafe 桥接
 
     def _make_handler(q: asyncio.Queue, client_mqtt: "mqtt.Client"):
         def on_message(_c, _u, msg):
@@ -143,20 +158,29 @@ async def _consume_mqtt(cfg: dict, dedup: _BoundedDedup, poll_fallback: bool):
                 data = {"text": msg.payload.decode("utf-8", "ignore").strip()}
             try:
                 loop.call_soon_threadsafe(
-                    q.put_nowait, {"_topic": msg.topic, "_data": data})
+                    q.put_nowait, {"_topic": msg.topic, "_data": data}
+                )
             except asyncio.QueueFull:
                 log.warning("mqtt queue full, drop 1 msg")
+
         return on_message
 
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1,
-                         clean_session=True, protocol=mqtt.MQTTv311)
+    client = mqtt.Client(
+        mqtt.CallbackAPIVersion.VERSION1, clean_session=True, protocol=mqtt.MQTTv311
+    )
     if user:
         client.username_pw_set(user, pwd or None)
     client.on_connect = lambda c, _u, _f, rc: (
-        connected.set() if rc == 0 else log.error("mqtt connect rc=%s", rc))
+        connected.set() if rc == 0 else log.error("mqtt connect rc=%s", rc)
+    )
 
-    log.info("mqtt ingest: connecting %s:%s topics=%s (timeout %.1fs)",
-             host, port, topics, timeout)
+    log.info(
+        "mqtt ingest: connecting %s:%s topics=%s (timeout %.1fs)",
+        host,
+        port,
+        topics,
+        timeout,
+    )
     conn_ok = False
     try:
         client.connect(host, port, keepalive=60)
@@ -177,8 +201,11 @@ async def _consume_mqtt(cfg: dict, dedup: _BoundedDedup, poll_fallback: bool):
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 30.0)
             try:
-                client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1,
-                                     clean_session=True, protocol=mqtt.MQTTv311)
+                client = mqtt.Client(
+                    mqtt.CallbackAPIVersion.VERSION1,
+                    clean_session=True,
+                    protocol=mqtt.MQTTv311,
+                )
                 client.connect(host, port, keepalive=60)
                 client.loop_start()
                 log.info("mqtt reconnected after backoff")
@@ -217,7 +244,9 @@ async def _consume_mqtt(cfg: dict, dedup: _BoundedDedup, poll_fallback: bool):
 # ---------------------------------------------------------------------------
 # 轮询模式（兜底）
 # ---------------------------------------------------------------------------
-async def _consume_poll(cfg: dict, dedup: _BoundedDedup, http_session: aiohttp.ClientSession):
+async def _consume_poll(
+    cfg: dict, dedup: _BoundedDedup, http_session: aiohttp.ClientSession
+):
     """轮询 MiService HTTP 对话记录接口（路径因版本而异，可配）。
 
     与旧版的区别：
@@ -236,13 +265,17 @@ async def _consume_poll(cfg: dict, dedup: _BoundedDedup, http_session: aiohttp.C
     backoff = interval
     while True:
         try:
-            async with http_session.get(url,
-                                        timeout=aiohttp.ClientTimeout(total=30)) as resp:
+            async with http_session.get(
+                url, timeout=aiohttp.ClientTimeout(total=30)
+            ) as resp:
                 if resp.status == 200:
                     backoff = interval
                     records = await resp.json()
-                    records = (records.get("items", records)
-                               if isinstance(records, dict) else records)
+                    records = (
+                        records.get("items", records)
+                        if isinstance(records, dict)
+                        else records
+                    )
                     for rec in records or []:
                         item = _item(rec, fallback_device="default")
                         if item is None:

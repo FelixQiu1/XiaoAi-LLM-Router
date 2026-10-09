@@ -42,7 +42,6 @@ import asyncio
 import logging
 import os
 import signal
-import sys
 from datetime import datetime, timezone
 
 import aiohttp
@@ -52,7 +51,7 @@ import llm_router as router
 import memory as mem
 import mi_tts as tts
 import miservice_glue as glue
-import mi_conversation as conv      # 【模块 1b】机型无关收音 + 设备自检（MiService 库）
+import mi_conversation as conv  # 【模块 1b】机型无关收音 + 设备自检（MiService 库）
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,12 +84,19 @@ def load_config(path: str = "config.yaml") -> dict:
     ol["base_url"] = os.environ.get("OLLAMA_BASE_URL", ol.get("base_url"))
 
     msvc = cfg.setdefault("miservice", {})
-    msvc["base_url"] = os.environ.get("MISEERVICE_URL", msvc.get("base_url", "http://localhost:8080"))
-    msvc["mqtt_host"] = os.environ.get("MISEERVICE_MQTT_HOST", msvc.get("mqtt_host", "127.0.0.1"))
+    msvc["base_url"] = os.environ.get(
+        "MISEERVICE_URL", msvc.get("base_url", "http://localhost:8080")
+    )
+    msvc["mqtt_host"] = os.environ.get(
+        "MISEERVICE_MQTT_HOST", msvc.get("mqtt_host", "127.0.0.1")
+    )
 
-    log.info("config loaded: provider=%s, ingest=%s, device=%s",
-             llm.get("default_provider"), msvc.get("ingest", "auto"),
-             mi.get("device_id"))
+    log.info(
+        "config loaded: provider=%s, ingest=%s, device=%s",
+        llm.get("default_provider"),
+        msvc.get("ingest", "auto"),
+        mi.get("device_id"),
+    )
     return cfg
 
 
@@ -106,7 +112,11 @@ def load_config(path: str = "config.yaml") -> dict:
 def match_wake(word_list: list, text: str) -> str | None:
     """返回命中的唤醒词；没命中返回 None（整句放给小爱原生应答）。"""
     for w in word_list:
-        key = w if isinstance(w, str) else (w.get("word") if isinstance(w, dict) else None)
+        key = (
+            w
+            if isinstance(w, str)
+            else (w.get("word") if isinstance(w, dict) else None)
+        )
         if key and key in text:
             return key
     return None
@@ -212,19 +222,31 @@ class RouterPipeline:
         if not self.stream:
             if tts_mode == "mina" and self.speaker_mina is not None:
                 # 机型无关嘴：MiService 库 text_to_speech（指令表已按 hardware 适配）
-                await self.speaker_mina.tts(device, full_answer) if ok and full_answer \
-                    else await self.speaker_mina.tts(device, "刚才网络有点开小差，你能再问一遍吗？")
+                (
+                    await self.speaker_mina.tts(device, full_answer)
+                    if ok and full_answer
+                    else await self.speaker_mina.tts(
+                        device, "刚才网络有点开小差，你能再问一遍吗？"
+                    )
+                )
             else:
                 if ok and full_answer:
-                    chunk_size = (self.cfg.get("tts", {}) or {}).get("max_chunk_chars", 60)
+                    chunk_size = (self.cfg.get("tts", {}) or {}).get(
+                        "max_chunk_chars", 60
+                    )
                     await self.speaker.speak_chunks(device, full_answer, chunk_size)
                 else:
-                    await self.speaker.speak(device, "刚才网络有点开小差，你能再问一遍吗？")
+                    await self.speaker.speak(
+                        device, "刚才网络有点开小差，你能再问一遍吗？"
+                    )
 
         if ok:
-            log.info("[%s] replied via %s: %s", device,
-                     (self.cfg.get("llm", {}) or {}).get("default_provider"),
-                     full_answer[:60])
+            log.info(
+                "[%s] replied via %s: %s",
+                device,
+                (self.cfg.get("llm", {}) or {}).get("default_provider"),
+                full_answer[:60],
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -232,8 +254,10 @@ class RouterPipeline:
 #    没有小米设备的人也能 1 分钟跑通全链路；也当 CI 冒烟用。
 # ---------------------------------------------------------------------------
 async def run_demo(cfg: dict) -> None:
-    log.info("demo mode: 从 stdin 读问题（'quit' 退出）。TTS 走 MiService 配置，"
-             "没配 MiService 时只打印文字。")
+    log.info(
+        "demo mode: 从 stdin 读问题（'quit' 退出）。TTS 走 MiService 配置，"
+        "没配 MiService 时只打印文字。"
+    )
     pipeline = RouterPipeline(cfg, speaker=tts.Speaker(cfg, _shared_session))
     while True:
         try:
@@ -245,8 +269,9 @@ async def run_demo(cfg: dict) -> None:
             break
         if not line:
             continue
-        await pipeline.handle({"text": line, "device_id": "demo",
-                               "session_id": "", "ts": 0.0})
+        await pipeline.handle(
+            {"text": line, "device_id": "demo", "session_id": "", "ts": 0.0}
+        )
     log.info("demo stopped")
 
 
@@ -267,15 +292,22 @@ async def _list_devices(cfg: dict, hardware_override: str | None) -> None:
         return
     print(f"{'名称':<20} {'DID':<14} {'hardware':<8} {'档位':<10} 备注")
     for r in rows:
-        tier_label = {"perfect": "✅ 完美", "normal": "🚗 正常",
-                     "unknown": "❓ 未知", "unsupported": "❌ 不支持"}.get(r["tier"], r["tier"])
-        print(f"{str(r['name']):<20} {r['did']:<14} {r['hardware']:<8} {tier_label:<10} {r.get('note','')}")
+        tier_label = {
+            "perfect": "✅ 完美",
+            "normal": "🚗 正常",
+            "unknown": "❓ 未知",
+            "unsupported": "❌ 不支持",
+        }.get(r["tier"], r["tier"])
+        print(
+            f"{str(r['name']):<20} {r['did']:<14} {r['hardware']:<8} {tier_label:<10} {r.get('note', '')}"
+        )
 
 
-async def _consume_conversation(sp: "conv.MiSpeaker", stop_event) -> AsyncIterator[dict]:
+async def _consume_conversation(sp, stop_event):
     """conversation 收音：轮询 get_latest_ask，以 request_id 做水位线去重（重启不重放）。"""
     import collections
-    dedup = collections.OrderedDict()   # request_id → ts，有界 LRU
+
+    dedup = collections.OrderedDict()  # request_id → ts，有界 LRU
     CAP = 512
     last_ts = 0.0
     log.info("conversation ingest: polling get_latest_ask every 3s")
@@ -283,12 +315,12 @@ async def _consume_conversation(sp: "conv.MiSpeaker", stop_event) -> AsyncIterat
         try:
             item = await sp.latest_ask()
         except Exception as e:
-            log.warning("conversation poll failed: %s", e)
+            log.warning("conversation poll failed: %s", e)  # noqa: E128
             await asyncio.sleep(3.0)
             continue
         if item and item.get("request_id"):
             rid = item["request_id"]
-            if item["ts"] <= last_ts or rid in dedup:
+            if item["ts"] <= last_ts or rid in dedup:  # noqa: E231
                 await asyncio.sleep(3.0)
                 continue
             dedup[rid] = item["ts"]
@@ -305,12 +337,21 @@ async def main() -> None:
     cfg = load_config()
 
     parser = argparse.ArgumentParser(description="XiaoAi-LLM-Router")
-    parser.add_argument("--demo", action="store_true",
-                        help="演示模式：stdin 输入 → TTS，不依赖 MiService")
-    parser.add_argument("--list-devices", action="store_true",
-                        help="列出当前小米账号下所有小爱音箱 + 支持档位后退出")
-    parser.add_argument("--hardware", default=None,
-                        help="手动指定音箱 hardware（覆盖 device_list 自动识别）")
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="演示模式：stdin 输入 → TTS，不依赖 MiService",
+    )
+    parser.add_argument(
+        "--list-devices",
+        action="store_true",
+        help="列出当前小米账号下所有小爱音箱 + 支持档位后退出",
+    )
+    parser.add_argument(
+        "--hardware",
+        default=None,
+        help="手动指定音箱 hardware（覆盖 device_list 自动识别）",
+    )
     parser.add_argument("--config", default="config.yaml", help="配置文件路径")
     args, _ = parser.parse_known_args()
     if args.list_devices:
@@ -343,8 +384,10 @@ async def main() -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, _on_signal)
 
-    log.info("XiaoAi-LLM-Router started. 说『小爱同学，%s …』触发。",
-             self_first_word(cfg.get("trigger", {})))
+    log.info(
+        "XiaoAi-LLM-Router started. 说『小爱同学，%s …』触发。",
+        self_first_word(cfg.get("trigger", {})),
+    )
 
     # 周期性清理僵尸 session（每 60s；运维钩子）
     async def _purge_loop():
@@ -362,8 +405,11 @@ async def main() -> None:
             speaker = await conv.MiSpeaker.connect(cfg)
             log.info("conversation ingest ready (MiService 库)")
         except Exception as e:
-            log.warning("conversation ingest unavailable (%s)%s", e,
-                        "，回落 poll" if ingest == "auto" else "")
+            log.warning(
+                "conversation ingest unavailable (%s)%s",
+                e,
+                "，回落 poll" if ingest == "auto" else "",
+            )
             if ingest == "conversation":
                 raise
     tts_mode = "mina" if speaker else "http"
@@ -383,8 +429,7 @@ async def main() -> None:
         purge_task.cancel()
         await _shared_session.close()
 
-    log.info("router stopped cleanly at %s",
-             datetime.now(timezone.utc).isoformat())
+    log.info("router stopped cleanly at %s", datetime.now(timezone.utc).isoformat())
 
 
 def self_first_word(trigger: dict) -> str:

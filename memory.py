@@ -40,7 +40,9 @@ class MemorySession:
         self.turns.append({"role": "assistant", "content": assistant})
         self.last_active = time.time()
 
-    def append_pending(self, user: str, note: str = "[assistant: LLM 调用失败，未回答]") -> None:
+    def append_pending(
+        self, user: str, note: str = "[assistant: LLM 调用失败，未回答]"
+    ) -> None:
         """LLM 失败时记 user 句 + 占位 assistant（可被模型理解为"这轮没答上"）。
         占位文本刻意简短，避免污染上下文。"""
         self.turns.append({"role": "user", "content": user})
@@ -87,8 +89,9 @@ class MemoryStore:
     def purge_expired(self) -> int:
         """运维钩子：周期性清理过期 session（main 可每 60s 调一次）。
         返回被清理的 key 数。"""
-        dead = [d for d, s in self._sessions.items()
-                if s.seconds_since_active() > self.ttl]
+        dead = [
+            d for d, s in self._sessions.items() if s.seconds_since_active() > self.ttl
+        ]
         for d in dead:
             del self._sessions[d]
         return len(dead)

@@ -1,5 +1,8 @@
 # XiaoAi-LLM-Router（小爱同学全能大模型网关）
 
+**[中文](README.md) | [English](README_EN.md)**
+
+
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11+-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/Docker-Compose-green.svg" alt="Docker">
@@ -7,6 +10,7 @@
   <img src="https://img.shields.io/badge/Ingest-MQTT%20%2B%20Poll-orange.svg" alt="Ingest">
   <img src="https://img.shields.io/badge/Privacy-Local%20First-red.svg" alt="Privacy">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License">
+  <img src="https://github.com/FelixQiu1/XiaoAi-LLM-Router/actions/workflows/ci.yml/badge.svg" alt="CI">
 </p>
 
 > **一键把家里那台"只会说天气"的老旧小爱同学，升级成 DeepSeek / Ollama 智能管家。**

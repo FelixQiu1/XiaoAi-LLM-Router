@@ -1,0 +1,5 @@
+[flake8]
+max-line-length = 110
+# 胶水层刻意保留部分长注释/长字符串，豁免 W503(换行运算符前)/E203(切片空格)
+ignore = W503, E203, E501
+exclude = .git, .venv, build, __pycache__

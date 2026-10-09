@@ -1,0 +1,5 @@
+[project]
+# 本项目用 flake8 做 CI 格式检查（black 可选本地跑），此处仅声明风格
+line-length = 100
+target-version = ['py311']
+skip-string-normalization = true

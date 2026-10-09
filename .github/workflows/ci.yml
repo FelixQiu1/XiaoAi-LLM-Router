@@ -16,14 +16,21 @@ jobs:
           python-version: "3.11"
 
       - name: Install deps
-        run: pip install -r requirements.txt pytest
+        run: pip install -r requirements.txt pytest flake8
+
+      - name: Lint (flake8)
+        run: flake8 main.py miservice_glue.py llm_router.py memory.py mi_tts.py mi_conversation.py --max-line-length=110
 
       - name: Unit tests
         run: python -m pytest tests/ -q
 
       - name: Syntax check
-        run: python -m py_compile main.py miservice_glue.py llm_router.py memory.py mi_tts.py
+        run: python -m py_compile main.py miservice_glue.py llm_router.py memory.py mi_tts.py mi_conversation.py
 
       - name: Validate docker-compose config
         run: docker compose config -q
-        continue-on-error: true   # runner 无 docker 时不阻断，仅作提示
+        continue-on-error: true
+
+      - name: Docker build dry-run
+        run: docker build -t xiaoai-llm-router:dry .
+        continue-on-error: true

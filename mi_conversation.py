@@ -29,7 +29,6 @@
 from __future__ import annotations
 
 import logging
-import time
 
 log = logging.getLogger("xiaoai-router.mina")
 
@@ -42,30 +41,30 @@ log = logging.getLogger("xiaoai-router.mina")
 # ---------------------------------------------------------------------------
 HARDWARE_COMMAND_DICT: dict[str, tuple[str, str, bool]] = {
     # ---------- ✅ 完美支持（含实验性连续对话） ----------
-    "OH2P":  ("7-3", "7-1", True),
-    "OH2":   ("5-3", "5-1", True),
-    "LX06":  ("5-1", "5-3", True),
-    "S12":   ("5-1", "5-3", True),
-    "S12A":  ("5-1", "5-5", True),
-    "L15A":  ("7-3", "7-1", True),
-    "LX5A":  ("5-1", "5-5", True),
-    "LX05":  ("5-1", "5-3", True),
+    "OH2P": ("7-3", "7-1", True),
+    "OH2": ("5-3", "5-1", True),
+    "LX06": ("5-1", "5-3", True),
+    "S12": ("5-1", "5-3", True),
+    "S12A": ("5-1", "5-5", True),
+    "L15A": ("7-3", "7-1", True),
+    "LX5A": ("5-1", "5-5", True),
+    "LX05": ("5-1", "5-3", True),
     "LX05A": ("5-1", "5-5", True),
-    "X10A":  ("7-3", "7-1", True),
-    "L17A":  ("7-3", "7-1", True),
+    "X10A": ("7-3", "7-1", True),
+    "L17A": ("7-3", "7-1", True),
     # ---------- 🚗 正常支持（TTS 问答链路完整；关 streamResponse） ----------
-    "L06A":  ("5-1", "5-5", False),   # 小爱音箱 / Redmi 小爱音箱（零售 L607/L607A）
-    "LX01":  ("5-1", "5-5", False),
-    "L05B":  ("5-3", "5-1", False),
-    "L05C":  ("5-3", "5-4", False),
-    "L07A":  ("5-1", "5-5", False),
-    "L09A":  ("3-1", "3-2", False),
-    "LX04":  ("5-1", "5-4", False),
-    "X4B":   ("5-3", "5-1", False),
+    "L06A": ("5-1", "5-5", False),  # 小爱音箱 / Redmi 小爱音箱（零售 L607/L607A）
+    "LX01": ("5-1", "5-5", False),
+    "L05B": ("5-3", "5-1", False),
+    "L05C": ("5-3", "5-4", False),
+    "L07A": ("5-1", "5-5", False),
+    "L09A": ("3-1", "3-2", False),
+    "LX04": ("5-1", "5-4", False),
+    "X4B": ("5-3", "5-1", False),
     "ASX4B": ("5-3", "5-1", False),
-    "X6A":   ("7-3", "7-1", False),
-    "X08E":  ("7-3", "7-1", False),
-    "X8F":   ("7-3", "7-1", False),
+    "X6A": ("7-3", "7-1", False),
+    "X08E": ("7-3", "7-1", False),
+    "X8F": ("7-3", "7-1", False),
 }
 
 # 完全不支持（云协议层不开放 / 纯蓝牙无云小爱）—— 启动自检时直接提示换机型
@@ -85,17 +84,27 @@ def tier_of(hardware: str) -> dict:
     """
     hw = (hardware or "").upper().strip()
     if hw in UNSUPPORTED_HARDWARE:
-        return {"hardware": hw, "tier": "unsupported",
-                "note": UNSUPPORTED_HARDWARE[hw]}
+        return {"hardware": hw, "tier": "unsupported", "note": UNSUPPORTED_HARDWARE[hw]}
     if hw in HARDWARE_COMMAND_DICT:
         tts, wk, stream = HARDWARE_COMMAND_DICT[hw]
         tier = "perfect" if stream else "normal"
-        return {"hardware": hw, "tier": tier, "tts": tts, "wakeup": wk,
-                "stream": stream, "note": ""}
+        return {
+            "hardware": hw,
+            "tier": tier,
+            "tts": tts,
+            "wakeup": wk,
+            "stream": stream,
+            "note": "",
+        }
     tts, wk, _ = DEFAULT_COMMAND
-    return {"hardware": hw, "tier": "unknown", "tts": tts, "wakeup": wk,
-            "stream": False,
-            "note": "指令表未收录，按默认 5-1 走；可贡献 PR 补进 HARDWARE_COMMAND_DICT"}
+    return {
+        "hardware": hw,
+        "tier": "unknown",
+        "tts": tts,
+        "wakeup": wk,
+        "stream": False,
+        "note": "指令表未收录，按默认 5-1 走；可贡献 PR 补进 HARDWARE_COMMAND_DICT",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -176,10 +185,14 @@ class MiSpeaker:
         """device_list 里找第一台小爱音箱（name 含 '小爱' 或 model 属 speaker）。"""
         devices = await self.mina.device_list() or []
         for d in devices:
-            name = (d.get("name") or d.get("nickname") or "")
-            model = (d.get("model") or d.get("hardware") or "")
+            name = d.get("name") or d.get("nickname") or ""
+            model = d.get("model") or d.get("hardware") or ""
             did = str(d.get("did") or d.get("device_id") or "")
-            if did and ("小爱" in name or "speaker" in model.lower() or "xiaoai" in model.lower()):
+            if did and (
+                "小爱" in name
+                or "speaker" in model.lower()
+                or "xiaoai" in model.lower()
+            ):
                 return did
         if devices:
             return str(devices[0].get("did") or devices[0].get("device_id") or "")
@@ -205,7 +218,9 @@ class MiSpeaker:
             return
         try:
             ok = await self.mina.text_to_speech(device_id, text)
-            log.info("tts → %s: %s", device_id, text[:30] + ("…" if len(text) > 30 else ""))
+            log.info(
+                "tts → %s: %s", device_id, text[:30] + ("…" if len(text) > 30 else "")
+            )
             if not ok:
                 log.warning("tts returned False for device %s", device_id)
         except Exception as e:

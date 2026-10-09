@@ -47,8 +47,7 @@ def _litellm_target(cfg: dict) -> tuple[str, dict]:
         raise ValueError(f"llm.{provider}.model 未配置")
 
     # 显式超时：Ollama 默认更宽松（冷启动加载模型），可配 llm.timeout_seconds
-    timeout = float(llm_cfg.get("timeout_seconds",
-                                120 if provider == "ollama" else 60))
+    timeout = float(llm_cfg.get("timeout_seconds", 120 if provider == "ollama" else 60))
 
     extra: dict = {"timeout": timeout}
     if provider == "ollama":
@@ -66,11 +65,16 @@ def _litellm_target(cfg: dict) -> tuple[str, dict]:
 
 def _payload(system_prompt: str, messages: list[dict], user_text: str) -> list[dict]:
     """拼装发给模型的对话：system 在最前，历史居中，当前问题压尾。"""
-    return ([{"role": "system", "content": system_prompt}, *messages,
-             {"role": "user", "content": user_text}])
+    return [
+        {"role": "system", "content": system_prompt},
+        *messages,
+        {"role": "user", "content": user_text},
+    ]
 
 
-async def ask(cfg: dict, system_prompt: str, messages: list[dict], user_text: str) -> str:
+async def ask(
+    cfg: dict, system_prompt: str, messages: list[dict], user_text: str
+) -> str:
     """发一次 LLM 请求，返回纯文本回复。
 
     契约：
@@ -102,8 +106,9 @@ def _split_sentence(text: str, min_chars: int = 12) -> str | None:
     return None
 
 
-async def ask_stream(cfg: dict, system_prompt: str, messages: list[dict],
-                     user_text: str):
+async def ask_stream(
+    cfg: dict, system_prompt: str, messages: list[dict], user_text: str
+):
     """流式版 ask()：攒够一个短句就 yield，最后一句没有标点也会收尾吐出。
 
     用法（main.py 的"边想边说"）：
@@ -116,7 +121,9 @@ async def ask_stream(cfg: dict, system_prompt: str, messages: list[dict],
     payload = _payload(system_prompt, messages, user_text)
 
     try:
-        resp = await acompletion(model=model_str, messages=payload, stream=True, **extra)
+        resp = await acompletion(
+            model=model_str, messages=payload, stream=True, **extra
+        )
         buf = ""
         async for chunk in resp:
             delta = chunk.choices[0].delta.content if chunk.choices else None
@@ -134,7 +141,7 @@ async def ask_stream(cfg: dict, system_prompt: str, messages: list[dict],
                     out, buf = buf[:sent_end].strip(), buf[sent_end:]
                     if out:
                         yield out
-                elif len(buf) >= 120:   # 模型一直不打标点（代码/长句）→ 强行切
+                elif len(buf) >= 120:  # 模型一直不打标点（代码/长句）→ 强行切
                     out, buf = buf[:120], buf[120:]
                     yield out
         if buf.strip():
